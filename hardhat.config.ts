@@ -29,7 +29,7 @@ const config: HardhatUserConfig = {
   },
   paths: {
     // deployments: 'networks',
-    sources: 'solidity-contracts',
+    sources: 'contracts/solidity',
     tests: 'test/unit',
   },
   typechain: {
