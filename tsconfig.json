@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@filters/*": ["./src/filters/*"],
+      "@guards/*": ["./src/guards/*"],
+      "@interfaces/*": ["./src/interfaces/*"],
+      "@shared/*": ["./src/components/shared/*"],
+      "@components/*": ["./src/components/*"],
+      "@pipes/*": ["./src/pipes/*"],
+      "@dto/*": ["./src/dto/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@responses/*": ["./src/responses/*"],
+      "@interceptors/*": ["./src/interceptors/*"],
+      "@decorators/*": ["./src/decorators/*"],
+      "@v1/*": ["src/modules/v1/*"],
+      "@exceptions/*": ["./src/exceptions/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@commands/*": ["./src/commands/*"],
+      "@constants/*": ["./src/constants/*"],
+      "@typings/*": ["./src/types/*"]
+    }
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist"]
+}
