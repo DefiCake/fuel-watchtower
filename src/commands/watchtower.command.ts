@@ -1,3 +1,4 @@
+import { WatchtowerService } from '@/modules/watchtower/watchtower.service';
 import { Injectable } from '@nestjs/common';
 
 import { Command, CommandRunner } from 'nest-commander';
@@ -7,11 +8,11 @@ import { Command, CommandRunner } from 'nest-commander';
 })
 @Injectable()
 export class WatchtowerCommand extends CommandRunner {
-  constructor() {
+  constructor(private readonly service: WatchtowerService) {
     super();
   }
 
   async run(): Promise<void> {
-    console.log('Watching');
+    const { height, ethBlockSync } = await this.service.getFuelLastBlock();
   }
 }
