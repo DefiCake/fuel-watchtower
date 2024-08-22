@@ -9,7 +9,7 @@ import { launchTestNode, LaunchTestNodeReturn } from 'fuels/test-utils';
 import { FuelService } from '../fuel/fuel.service';
 import { ConfigModule } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
-import { Anvil, createAnvil } from '@viem/anvil';
+import { Anvil, createAnvil, CreateAnvilOptions } from '@viem/anvil';
 import { forwardETHChain } from 'test/utils';
 
 describe('CheckpointService', () => {
@@ -23,23 +23,11 @@ describe('CheckpointService', () => {
   let mongoConnection: Connection;
 
   beforeAll(async () => {
-    anvil = createAnvil({ port: 49152 + Math.floor(5000 * Math.random()) });
+    const port = 49152 + Math.floor(5000 * Math.random());
+    anvil = createAnvil({ port });
+
     rpcUrl = `http://localhost:${anvil.port}`;
     await anvil.start();
-
-    // cargo run --bin fuel-core -- \
-    //     --ip 0.0.0.0
-    //     --port 4000
-    //     --db-type in-memory
-    //     --utxo-validation
-    //     --vm-backtrace
-    //     --enable-relayer
-    //     --relayer http://127.0.0.1:8545
-    //     --relayer-v2-listening-contracts 0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07
-    //     --relayer-da-deploy-height 0
-    //     --poa-interval-period 1sec
-    //     --debug
-    //     --min-gas-price 0
 
     fuel = await launchTestNode({
       nodeOptions: {
@@ -136,7 +124,7 @@ describe('CheckpointService', () => {
           );
         }
 
-        await forwardETHChain(rpcUrl, 1, { interval: 60 });
+        await forwardETHChain(rpcUrl, 128); // 128 blocks: enough to move the last finalized block
 
         {
           const createdCheckpoint = await service.createCheckpoint();
