@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongooseModule } from '@nestjs/mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
-import { Connection, connect, Model } from 'mongoose';
+import { Connection, connect } from 'mongoose';
 import CheckpointRepository from './checkpoint.repository';
 import { Checkpoint, CheckpointSchema } from './schemas/checkpoints.schema';
 import { CheckpointType, EthBlockType, FuelBlockType } from '@/types';

@@ -1,16 +1,16 @@
-import { FuelService } from '@/modules/fuel/fuel.service';
 import { Injectable } from '@nestjs/common';
-import { IndexerService } from '../indexer/indexer.service';
 import CheckpointRepository from './checkpoint.repository';
 import { ConfigService } from '@nestjs/config';
-import { Checkpoint } from './schemas/checkpoints.schema';
 import { CheckpointType } from '@/types';
+import { FuelService } from '@/modules/fuel/fuel.service';
+import { EthService } from '@/modules/eth/eth.service';
 
 @Injectable()
 export class CheckpointService {
   constructor(
     private readonly configService: ConfigService,
     private readonly fuelService: FuelService,
+    private readonly ethService: EthService,
     private readonly checkpointRepository: CheckpointRepository,
   ) {}
 
@@ -18,6 +18,18 @@ export class CheckpointService {
     const lastCheckpoint = this.checkpointRepository.getLastCheckpoint();
 
     if (lastCheckpoint === null) {
+      const eth_provider = await this.ethService.getClient();
+      const ethBlockSync = Number(
+        this.configService.getOrThrow<string>('DA_DEPLOY_HEIGHT'),
+      );
+
+      const eth_block = await eth_provider.getBlock(ethBlockSync);
+
+      const fuel_block = {
+        ...(await this.fuelService.getBlock(0)),
+        ethBlockSync,
+      };
+
       // Bootstrap
       return {
         eth_block: {
@@ -25,12 +37,7 @@ export class CheckpointService {
           number: 0,
           timestamp: 0,
         },
-        fuel_block: {
-          id: '',
-          height: 0,
-          time: 0,
-          ethBlockSync: 0,
-        },
+        fuel_block,
       };
     }
 
