@@ -4,7 +4,6 @@ import { Injectable } from '@nestjs/common';
 
 import { CheckpointType } from '@/types';
 import { Checkpoint } from './schemas/checkpoints.schema';
-import { check } from 'prettier';
 
 @Injectable()
 export default class CheckpointRepository {
