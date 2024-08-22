@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Provider } from 'fuels';
+import { Block as FuelBlock, Provider } from 'fuels';
 @Injectable()
 export class FuelService {
   constructor(private readonly configService: ConfigService) {}
@@ -16,11 +16,29 @@ export class FuelService {
   public async getLastBlock() {
     const provider = await this.getClient();
 
-    const { chain } = await provider.fetchChainAndNodeInfo();
+    const {
+      chain: { latestBlock, baseChainHeight },
+    } = await provider.fetchChainAndNodeInfo();
 
     return {
-      ...chain.latestBlock,
-      ethBlockSync: BigInt(chain.baseChainHeight.toString()),
+      ...this.numberifyBlock(latestBlock),
+      ethBlockSync: Number(baseChainHeight.toString()),
+    };
+  }
+
+  public async getBlock(n: number) {
+    const provider = await this.getClient();
+
+    const block = await provider.getBlock(n);
+
+    return this.numberifyBlock(block);
+  }
+
+  numberifyBlock(block: Omit<FuelBlock, 'transactionIds'>) {
+    return {
+      ...block,
+      time: Number(block.time),
+      height: Number(block.height.toString()),
     };
   }
 }
