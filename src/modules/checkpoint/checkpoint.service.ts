@@ -15,7 +15,7 @@ export class CheckpointService {
   ) {}
 
   async getLastCheckpoint(): Promise<CheckpointType> {
-    const lastCheckpoint = this.checkpointRepository.getLastCheckpoint();
+    const lastCheckpoint = await this.checkpointRepository.getLastCheckpoint();
 
     if (lastCheckpoint === null) {
       const eth_provider = await this.ethService.getClient();
@@ -32,11 +32,7 @@ export class CheckpointService {
 
       // Bootstrap
       return {
-        eth_block: {
-          hash: '',
-          number: 0,
-          timestamp: 0,
-        },
+        eth_block,
         fuel_block,
       };
     }

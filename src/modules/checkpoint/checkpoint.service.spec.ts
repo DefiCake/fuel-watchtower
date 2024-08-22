@@ -9,9 +9,23 @@ import { launchTestNode, LaunchTestNodeReturn } from 'fuels/test-utils';
 import { FuelService } from '../fuel/fuel.service';
 import { ConfigModule } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
-import * as hre from 'hardhat';
+import { Anvil, createAnvil } from '@viem/anvil';
+import { JsonRpcProvider } from 'ethers';
 
 describe('CheckpointService', () => {
+  let anvil: Anvil;
+  let rpcUrl: string;
+
+  beforeAll(async () => {
+    anvil = createAnvil({ port: 49152 + Math.floor(5000 * Math.random()) });
+    rpcUrl = `http://localhost:${anvil.port}`;
+    await anvil.start();
+  });
+
+  afterAll(async () => {
+    await anvil.stop();
+  });
+
   let service: CheckpointService;
   let fuel: LaunchTestNodeReturn<any>;
 
@@ -19,6 +33,9 @@ describe('CheckpointService', () => {
   let mongoConnection: Connection;
 
   beforeAll(async () => {
+    anvil = createAnvil({ port: 49152 + Math.floor(5000 * Math.random()) });
+    await anvil.start();
+
     // cargo run --bin fuel-core -- \
     //     --ip 0.0.0.0 \
     //     --port 4000 \
@@ -33,11 +50,16 @@ describe('CheckpointService', () => {
     //     --debug \
     //     --min-gas-price 0
 
-    fuel = await launchTestNode();
+    fuel = await launchTestNode({
+      nodeOptions: {
+        args: [`--enable-relayer`, `--relayer`, rpcUrl],
+      },
+    });
   });
 
   afterAll(async () => {
     fuel.cleanup();
+    await anvil.stop();
   });
 
   beforeEach(async () => {
@@ -55,19 +77,20 @@ describe('CheckpointService', () => {
           isGlobal: true,
           ignoreEnvVars: true,
           ignoreEnvFile: true,
-          load: [() => ({ FUEL_GRAPHQL: fuel.provider.url })],
+          load: [
+            () => ({
+              DA_DEPLOY_HEIGHT: 0,
+              ETH_RPC_URL: rpcUrl,
+              FUEL_GRAPHQL: fuel.provider.url,
+            }),
+          ],
         }),
       ],
       providers: [
         CheckpointRepository,
         FuelService,
         CheckpointService,
-        {
-          provide: EthService,
-          useValue: {
-            getClient: () => hre.ethers.provider,
-          },
-        },
+        EthService,
       ],
     }).compile();
 
@@ -85,6 +108,13 @@ describe('CheckpointService', () => {
   });
 
   describe('getLastCheckpoint()', () => {
-    it('works', async () => {});
+    describe('when uninitialized', () => {
+      it('initializes to a 0 state', async () => {
+        const checkpoint = await service.getLastCheckpoint();
+
+        expect(checkpoint.eth_block.number).toBe(0);
+        expect(checkpoint.fuel_block.height).toBe(0);
+      });
+    });
   });
 });
