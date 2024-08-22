@@ -10,21 +10,11 @@ import { FuelService } from '../fuel/fuel.service';
 import { ConfigModule } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
 import { Anvil, createAnvil } from '@viem/anvil';
-import { JsonRpcProvider } from 'ethers';
+import { forwardETHChain } from 'test/utils';
 
 describe('CheckpointService', () => {
   let anvil: Anvil;
   let rpcUrl: string;
-
-  beforeAll(async () => {
-    anvil = createAnvil({ port: 49152 + Math.floor(5000 * Math.random()) });
-    rpcUrl = `http://localhost:${anvil.port}`;
-    await anvil.start();
-  });
-
-  afterAll(async () => {
-    await anvil.stop();
-  });
 
   let service: CheckpointService;
   let fuel: LaunchTestNodeReturn<any>;
@@ -34,25 +24,40 @@ describe('CheckpointService', () => {
 
   beforeAll(async () => {
     anvil = createAnvil({ port: 49152 + Math.floor(5000 * Math.random()) });
+    rpcUrl = `http://localhost:${anvil.port}`;
     await anvil.start();
 
     // cargo run --bin fuel-core -- \
-    //     --ip 0.0.0.0 \
-    //     --port 4000 \
-    //     --db-type in-memory \
-    //     --utxo-validation \
-    //     --vm-backtrace \
-    //     --enable-relayer \
-    //     --relayer http://127.0.0.1:8545 \
-    //     --relayer-v2-listening-contracts 0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07 \
-    //     --relayer-da-deploy-height 0 \
-    //     --poa-interval-period 1sec \
-    //     --debug \
+    //     --ip 0.0.0.0
+    //     --port 4000
+    //     --db-type in-memory
+    //     --utxo-validation
+    //     --vm-backtrace
+    //     --enable-relayer
+    //     --relayer http://127.0.0.1:8545
+    //     --relayer-v2-listening-contracts 0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07
+    //     --relayer-da-deploy-height 0
+    //     --poa-interval-period 1sec
+    //     --debug
     //     --min-gas-price 0
 
     fuel = await launchTestNode({
       nodeOptions: {
-        args: [`--enable-relayer`, `--relayer`, rpcUrl],
+        args: [
+          '--enable-relayer',
+          '--relayer',
+          `${rpcUrl}`,
+          '--relayer-v2-listening-contracts',
+          '0xB0D4afd8879eD9F52b28595d31B441D079B2Ca07',
+          '--relayer-da-deploy-height',
+          '0',
+          '--poa-instant',
+          'false',
+          '--poa-interval-period',
+          '1sec',
+          '--min-gas-price',
+          '0',
+        ],
       },
     });
   });
@@ -114,6 +119,36 @@ describe('CheckpointService', () => {
 
         expect(checkpoint.eth_block.number).toBe(0);
         expect(checkpoint.fuel_block.height).toBe(0);
+      });
+    });
+
+    describe('when initialized()', () => {
+      it('returns the last checkpoint', async () => {
+        {
+          const createdCheckpoint = await service.createCheckpoint();
+          let lastCheckpoint = await service.getLastCheckpoint();
+
+          expect(createdCheckpoint.eth_block.hash).toBe(
+            lastCheckpoint.eth_block.hash,
+          );
+          expect(createdCheckpoint.fuel_block.id).toBe(
+            lastCheckpoint.fuel_block.id,
+          );
+        }
+
+        await forwardETHChain(rpcUrl, 1, { interval: 60 });
+
+        {
+          const createdCheckpoint = await service.createCheckpoint();
+          let lastCheckpoint = await service.getLastCheckpoint();
+
+          expect(createdCheckpoint.eth_block.hash).toBe(
+            lastCheckpoint.eth_block.hash,
+          );
+          expect(createdCheckpoint.fuel_block.id).toBe(
+            lastCheckpoint.fuel_block.id,
+          );
+        }
       });
     });
   });

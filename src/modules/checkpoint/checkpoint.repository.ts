@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 
 import { CheckpointType } from '@/types';
 import { Checkpoint } from './schemas/checkpoints.schema';
+import { check } from 'prettier';
 
 @Injectable()
 export default class CheckpointRepository {
@@ -28,7 +29,7 @@ export default class CheckpointRepository {
 
   public async getLastCheckpoint(): Promise<Checkpoint | null> {
     const checkpoint = await this.CheckpointModel.findOne({})
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: 'desc' })
       .exec();
 
     return checkpoint;

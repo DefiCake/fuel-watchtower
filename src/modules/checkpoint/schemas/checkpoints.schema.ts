@@ -15,7 +15,7 @@ export class Checkpoint extends Document implements CheckpointType {
   @Prop({
     type: Number,
     required: true,
-    default: () => Math.floor(Date.now() / 1000),
+    default: () => Date.now(),
   })
   createdAt: number;
 }

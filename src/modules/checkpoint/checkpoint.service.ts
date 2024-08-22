@@ -39,4 +39,18 @@ export class CheckpointService {
 
     return lastCheckpoint;
   }
+
+  async createCheckpoint() {
+    const eth_provider = await this.ethService.getClient();
+
+    const eth_block = await eth_provider.getBlock('latest');
+    const fuel_block = await this.fuelService.getLastBlock();
+
+    const checkpoint = await this.checkpointRepository.create({
+      eth_block,
+      fuel_block,
+    });
+
+    return checkpoint;
+  }
 }
