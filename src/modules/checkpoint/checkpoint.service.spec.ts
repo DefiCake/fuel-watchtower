@@ -1,16 +1,16 @@
-import { MongooseModule } from '@nestjs/mongoose';
+import { getConnectionToken, MongooseModule } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, connect } from 'mongoose';
 import { Checkpoint, CheckpointSchema } from './schemas/checkpoints.schema';
 import CheckpointRepository from './checkpoint.repository';
 import { CheckpointService } from './checkpoint.service';
 import { launchTestNode, LaunchTestNodeReturn } from 'fuels/test-utils';
 import { FuelService } from '../fuel/fuel.service';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
-import { Anvil, createAnvil, CreateAnvilOptions } from '@viem/anvil';
-import { forwardETHChain } from 'test/utils';
+import { Anvil, createAnvil } from '@viem/anvil';
+import { forwardETHChain, waitForNewFuelBlock } from 'test/utils';
 
 describe('CheckpointService', () => {
   let anvil: Anvil;
@@ -19,7 +19,7 @@ describe('CheckpointService', () => {
   let service: CheckpointService;
   let fuel: LaunchTestNodeReturn<any>;
 
-  let mongod: MongoMemoryServer;
+  let replSet: MongoMemoryReplSet;
   let mongoConnection: Connection;
 
   beforeAll(async () => {
@@ -56,9 +56,22 @@ describe('CheckpointService', () => {
   });
 
   beforeEach(async () => {
-    mongod = await MongoMemoryServer.create();
-    const uri = mongod.getUri();
+    replSet = await MongoMemoryReplSet.create({
+      replSet: { count: 1 }, // Single-node replica set
+    });
+    const uri = replSet.getUri();
     mongoConnection = (await connect(uri)).connection;
+
+    // Ensure collections are created before any transaction
+    await mongoConnection.db?.createCollection('checkpoints');
+
+    // Explicitly create the collection and ensure indexes are created before transactions
+    const checkpointModel = mongoConnection.model(
+      'Checkpoint',
+      CheckpointSchema,
+    );
+    await checkpointModel.createCollection(); // Ensure collection is created
+    await checkpointModel.ensureIndexes(); // Ensure indexes are created
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [
@@ -82,8 +95,26 @@ describe('CheckpointService', () => {
       providers: [
         CheckpointRepository,
         FuelService,
-        CheckpointService,
         EthService,
+        {
+          provide: CheckpointService,
+          useFactory: (config, fuel, eth, repository, connection) => {
+            return new CheckpointService(
+              config,
+              fuel,
+              eth,
+              repository,
+              connection,
+            );
+          },
+          inject: [
+            ConfigService,
+            FuelService,
+            EthService,
+            CheckpointRepository,
+            getConnectionToken(),
+          ],
+        },
       ],
     }).compile();
 
@@ -93,7 +124,7 @@ describe('CheckpointService', () => {
   afterEach(async () => {
     await mongoConnection.dropDatabase();
     await mongoConnection.close();
-    await mongod.stop({ doCleanup: true });
+    await replSet.stop();
   });
 
   it('instantiates the service', async () => {
@@ -125,6 +156,7 @@ describe('CheckpointService', () => {
         }
 
         await forwardETHChain(rpcUrl, 128); // 128 blocks: enough to move the last finalized block
+        await waitForNewFuelBlock(fuel.provider);
 
         {
           const createdCheckpoint = await service.createCheckpoint();
@@ -137,6 +169,33 @@ describe('CheckpointService', () => {
             lastCheckpoint.fuel_block.id,
           );
         }
+      });
+    });
+  });
+
+  describe('createCheckpoint', () => {
+    describe('with session', () => {
+      it('defers creation until the session is committed', async () => {
+        const session = await service.startSession();
+        session.startTransaction();
+
+        const createdCheckpoint = await service.createCheckpoint(session);
+
+        {
+          const checkpoint = await service.getLastCheckpoint();
+          expect(checkpoint.eth_block.number).toBe(0);
+          expect(checkpoint.fuel_block.height).toBe(0);
+        }
+
+        await session.commitTransaction();
+        {
+          const checkpoint = await service.getLastCheckpoint();
+          expect(checkpoint.eth_block.hash).toBe(
+            createdCheckpoint.eth_block.hash,
+          );
+        }
+
+        await session.endSession();
       });
     });
   });
