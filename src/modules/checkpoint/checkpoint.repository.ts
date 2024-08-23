@@ -1,4 +1,4 @@
-import { Model } from 'mongoose';
+import { ClientSession, Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { Injectable } from '@nestjs/common';
 
@@ -11,11 +11,16 @@ export default class CheckpointRepository {
     @InjectModel(Checkpoint.name) private CheckpointModel: Model<Checkpoint>,
   ) {}
 
-  public async create(checkpoint: CheckpointType): Promise<Checkpoint> {
-    const newCheckpoint: Checkpoint =
-      await this.CheckpointModel.create<CheckpointType>({
-        ...checkpoint,
-      });
+  public async create(
+    checkpoint: CheckpointType,
+    session?: ClientSession,
+  ): Promise<Checkpoint> {
+    const [newCheckpoint] = await this.CheckpointModel.create(
+      [{ ...checkpoint }],
+      {
+        session,
+      },
+    );
 
     return newCheckpoint;
   }

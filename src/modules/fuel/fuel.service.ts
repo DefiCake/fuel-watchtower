@@ -31,6 +31,10 @@ export class FuelService {
 
     const block = await provider.getBlock(n);
 
+    if (!block) {
+      throw new Error('FuelService.getBlock(): could not fetch block');
+    }
+
     return this.numberifyBlock(block);
   }
 
