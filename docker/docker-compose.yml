@@ -1,0 +1,52 @@
+services:
+  mongodb:
+    container_name: mongodb
+    build:
+      context: ../
+      dockerfile: ./docker/docker.mongodb.Dockerfile
+    command: ['-f', '/etc/mongod.conf']
+    ports:
+      - 27017:27017
+
+  eth_node:
+    platform: linux/amd64
+    container_name: eth_node
+    # Build of June 1st 2024
+    image: ghcr.io/foundry-rs/foundry:nightly-4351742481c98adaa9ca3e8642e619aa986b3cee
+    entrypoint: ['sh', '/anvil.sh']
+    ports:
+      - 8545:8545
+    environment:
+      - MNEMONIC=${MNEMONIC:-test test test test test test test test test test test junk}
+      - BLOCK_TIME=${BLOCK_TIME:-12}
+    volumes:
+      - ../scripts/anvil.sh:/anvil.sh:ro
+    stop_grace_period: 1s
+
+  otterscan:
+    container_name: otterscan
+    image: otterscan/otterscan
+    ports:
+      - 5100:80
+    environment:
+      - ERIGON_URL=http://localhost:8545
+    depends_on:
+      - eth_node
+
+  fuel_node:
+    container_name: fuel_node
+    build:
+      context: ../
+      dockerfile: ./docker/docker.fuel_node.Dockerfile
+    ports:
+      - 4000:4000
+    environment:
+      - ETH_NODE=http://eth_node:8545
+    volumes:
+      - ../networks/localhost:/app/deployment_data
+    depends_on:
+      eth_node:
+        condition: service_started
+      # deploy:
+      #   condition: service_completed_successfully
+    stop_grace_period: 1s
