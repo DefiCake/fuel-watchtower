@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ClientSession, Connection } from 'mongoose';
 import { InjectConnection } from '@nestjs/mongoose';
 import UtxoRepository from './utxo.repository';
