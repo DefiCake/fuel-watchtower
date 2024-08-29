@@ -9,6 +9,7 @@ export async function waitForNewFuelBlock(provider: Provider) {
 
   while (true) {
     const newBlock = await provider.getBlock('latest');
+    console.log(newBlock?.height, currentBlock.height);
     if (currentBlock.height < (newBlock?.height || 0)) {
       break;
     }
