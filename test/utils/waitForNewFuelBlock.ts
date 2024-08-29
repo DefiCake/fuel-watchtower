@@ -1,16 +1,16 @@
-import { Provider } from 'fuels';
+import { BN, Provider } from 'fuels';
 
 export async function waitForNewFuelBlock(provider: Provider) {
-  const currentBlock = await provider.getBlock('latest');
+  const snapshotBlock = await provider.getBlock('latest');
 
-  if (!currentBlock) {
+  if (!snapshotBlock) {
     throw new Error('Could not fetch FuelBlock');
   }
 
   while (true) {
     const newBlock = await provider.getBlock('latest');
-    console.log(newBlock?.height, currentBlock.height);
-    if (currentBlock.height < (newBlock?.height || 0)) {
+
+    if (snapshotBlock.height.lt(newBlock?.height || new BN('0'))) {
       break;
     }
   }
