@@ -5,6 +5,7 @@ import WatchtowerModule from '../watchtower/watchtower.module';
 import IndexerModule from '../indexer/indexer.module';
 import CheckpointModule from '../checkpoint/checkpoint.module';
 import EthModule from '../eth/eth.module';
+import UtxoModule from '../utxo/utxo.module';
 
 export const baseImports = [
   ConfigModule.forRoot({
@@ -16,5 +17,6 @@ export const baseImports = [
   WatchtowerModule,
   IndexerModule,
   CheckpointModule,
+  UtxoModule,
 ];
 export const baseControllers = [];
