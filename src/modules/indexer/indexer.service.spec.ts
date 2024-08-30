@@ -23,7 +23,6 @@ import {
   EthL1L2MessagesSchema,
 } from './schemas/eth.l1l2.messages.schema';
 import EthL1L2MessagesRepository from './eth.l1l2.messages.repository';
-import { ZeroBytes32 } from 'fuels';
 
 const get = jest.fn();
 const getOrThrow = jest.fn();
