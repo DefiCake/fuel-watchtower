@@ -13,7 +13,7 @@ contract FuelMessagePortal {
     uint256 nonce = 0;
 
     function sendMessageMock(bytes32 recipient, bytes calldata data) public payable {
-        emit MessageSent(bytes32(bytes20(msg.sender)), recipient, nonce, uint64(msg.value), data);
+        emit MessageSent(bytes32(uint256(uint160(msg.sender))), recipient, nonce, uint64(msg.value), data);
         nonce++;
     }
 }

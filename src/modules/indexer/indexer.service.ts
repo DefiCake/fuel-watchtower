@@ -9,6 +9,8 @@ import { EthService } from '../eth/eth.service';
 import { L1toL2MessageType } from '@/types';
 import { FuelService } from '../fuel/fuel.service';
 import { LogDescription } from 'ethers';
+import EthL1L2MessagesRepository from './eth.l1l2.messages.repository';
+import { ClientSession } from 'mongoose';
 
 const iface = FuelMessagePortal__factory.createInterface();
 const MESSAGE_SENT_EVENT_HASH = iface.getEvent('MessageSent').topicHash;
@@ -19,10 +21,14 @@ export class IndexerService {
     private readonly configService: ConfigService,
     private readonly ethService: EthService,
     private readonly fuelService: FuelService,
+    private readonly ethL1L2Messages: EthL1L2MessagesRepository,
   ) {}
 
-  // TODO: scaffolded
-  public async indexL1toL2Messages(from: number, to: number) {
+  public async indexL1toL2Messages(
+    from: number,
+    to: number,
+    session?: ClientSession,
+  ) {
     let messages: L1toL2MessageType[];
     if (this.envioEnabled()) {
       messages = await this.getL1toL2MessagesWithEnvio(from, to);
@@ -30,7 +36,9 @@ export class IndexerService {
       messages = await this.getL1toL2MessagesWithRpc(from, to);
     }
 
-    return messages;
+    const newEntries = await this.ethL1L2Messages.createMany(messages, session);
+
+    return newEntries;
   }
 
   public async getL1toL2MessagesWithRpc(

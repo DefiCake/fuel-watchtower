@@ -1,4 +1,4 @@
-import { getConnectionToken, MongooseModule } from '@nestjs/mongoose';
+import { MongooseModule } from '@nestjs/mongoose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { Connection, connect } from 'mongoose';
@@ -6,6 +6,23 @@ import { FuelService } from '../fuel/fuel.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
 import { IndexerService } from './indexer.service';
+import { Anvil } from '@viem/anvil';
+import { ethTestWallets, setupAnvil } from 'test/utils';
+import {
+  ContractTransactionReceipt,
+  JsonRpcProvider,
+  Wallet,
+  zeroPadValue,
+} from 'ethers';
+import {
+  FuelMessagePortal,
+  FuelMessagePortal__factory,
+} from '@/types/solidity';
+import {
+  EthL1L2Messages,
+  EthL1L2MessagesSchema,
+} from './schemas/eth.l1l2.messages.schema';
+import EthL1L2MessagesRepository from './eth.l1l2.messages.repository';
 
 const get = jest.fn();
 const getOrThrow = jest.fn();
@@ -16,6 +33,27 @@ describe('IndexerService', () => {
 
   let replSet: MongoMemoryReplSet;
   let mongoConnection: Connection;
+  let anvil: Anvil;
+  let rpcUrl: string;
+  let provider: JsonRpcProvider;
+  let wallets: Wallet[];
+
+  let portal: FuelMessagePortal;
+
+  beforeAll(async () => {
+    ({ anvil, rpcUrl } = await setupAnvil());
+
+    provider = new JsonRpcProvider(rpcUrl);
+    wallets = ethTestWallets({ provider });
+
+    portal = await new FuelMessagePortal__factory(wallets[0])
+      .deploy()
+      .then((deployment) => deployment.waitForDeployment());
+  });
+
+  afterAll(async () => {
+    await anvil.stop();
+  });
 
   beforeEach(async () => {
     replSet = await MongoMemoryReplSet.create({
@@ -25,14 +63,14 @@ describe('IndexerService', () => {
     mongoConnection = (await connect(uri)).connection;
 
     // Ensure collections are created before any transaction
-    // await mongoConnection.db?.createCollection('checkpoints');
+    await mongoConnection.db?.createCollection(EthL1L2Messages.name);
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [
         MongooseModule.forRoot(uri),
-        // MongooseModule.forFeature([
-        //   { name: FuelBlockWithUtxos.name, schema: FuelBlockWithUtxosSchema },
-        // ]),
+        MongooseModule.forFeature([
+          { name: EthL1L2Messages.name, schema: EthL1L2MessagesSchema },
+        ]),
         ConfigModule.forRoot({
           isGlobal: true,
           ignoreEnvVars: true,
@@ -44,6 +82,7 @@ describe('IndexerService', () => {
         FuelService,
         EthService,
         IndexerService,
+        EthL1L2MessagesRepository,
         {
           provide: ConfigService,
           useValue: {
@@ -107,6 +146,48 @@ describe('IndexerService', () => {
       });
     });
 
-    it('retrieves messages and stores them in the database', async () => {});
+    describe.only('index messages', () => {
+      beforeAll(async () => {
+        // These values come from sepolia 's deployment
+
+        const ETH_PORTAL_ADDRESS = await portal.getAddress();
+        const envs = (key: string) => {
+          const values = {
+            // TODO: maybe we should move this to an e2e test...
+            ETH_RPC_URL: rpcUrl,
+            ETH_PORTAL_ADDRESS,
+          };
+
+          return values[key];
+        };
+
+        get.mockImplementation(envs);
+        getOrThrow.mockImplementation(envs);
+      });
+
+      it('retrieves portal messages and stores them in the database', async () => {
+        const receipts: ContractTransactionReceipt[] = (await Promise.all(
+          wallets.map((wallet) => {
+            return portal
+              .connect(wallet)
+              .sendMessageMock(zeroPadValue(wallet.address, 32), '0x')
+              .then((tx) => tx.wait());
+          }),
+        )) as any;
+
+        const blockNumbers = receipts.map((receipt) => receipt?.blockNumber);
+
+        const from = Math.min(...(blockNumbers as any));
+        const to = Math.max(...(blockNumbers as any));
+
+        const newEntries = await service.indexL1toL2Messages(from, to);
+
+        newEntries.forEach((entry, index) => {
+          expect(entry.sender).toBe(zeroPadValue(receipts[index].from, 32));
+          expect(entry.recipient).toBe(zeroPadValue(receipts[index].from, 32));
+          expect(entry.data).toBe('0x');
+        });
+      });
+    });
   });
 });
