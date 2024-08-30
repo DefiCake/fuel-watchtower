@@ -5,6 +5,8 @@ import { Document } from 'mongoose';
 @Schema()
 export class EthL1L2Messages extends Document implements L1toL2MessageType {
   @Prop({ required: true })
+  blockNumber: number = 0;
+  @Prop({ required: true })
   sender: string = '';
   @Prop({ required: true })
   recipient: string = '';

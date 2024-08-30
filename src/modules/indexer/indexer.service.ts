@@ -58,8 +58,9 @@ export class IndexerService {
 
     const messages: L1toL2MessageType[] = events.map((ev) => {
       const { sender, recipient, nonce, amount, data } = ev.args;
-
+      const blockNumber = ev.blockNumber;
       return {
+        blockNumber,
         sender,
         recipient,
         nonce: nonce.toString(),
@@ -106,6 +107,7 @@ export class IndexerService {
       const [sender, recipient, nonce, amount, data] = log!.args;
 
       return {
+        blockNumber: event.blockNumber!,
         sender: sender as string,
         recipient: recipient as string,
         nonce: (nonce as bigint).toString(),
