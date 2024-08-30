@@ -9,23 +9,22 @@ import { L1toL2MessageType } from '@/types';
 export default class EthL1L2MessagesRepository {
   constructor(
     @InjectModel(EthL1L2Messages.name)
-    private FuelBlockWithUtxoModel: Model<EthL1L2Messages>,
+    private EthL1L2Model: Model<EthL1L2Messages>,
   ) {}
 
   async create(
     entry: L1toL2MessageType,
     session?: ClientSession,
   ): Promise<EthL1L2Messages> {
-    const [newEntry] = await this.FuelBlockWithUtxoModel.create(
-      [{ ...entry }],
-      { session },
-    );
+    const [newEntry] = await this.EthL1L2Model.create([{ ...entry }], {
+      session,
+    });
 
     return newEntry;
   }
 
   async createMany(entries: L1toL2MessageType[], session?: ClientSession) {
-    const newEntries = await this.FuelBlockWithUtxoModel.create(entries, {
+    const newEntries = await this.EthL1L2Model.create(entries, {
       session,
     });
 
@@ -33,31 +32,36 @@ export default class EthL1L2MessagesRepository {
   }
 
   async findAll(): Promise<EthL1L2Messages[]> {
-    return this.FuelBlockWithUtxoModel.find().exec();
+    return this.EthL1L2Model.find().exec();
   }
 
-  async findOne(height: number): Promise<EthL1L2Messages | null> {
-    return this.FuelBlockWithUtxoModel.findOne({ height }).exec();
+  async findOne(nonce: string): Promise<EthL1L2Messages | null> {
+    return this.EthL1L2Model.findOne({ nonce }).exec();
+  }
+
+  async findLastIndexedBlock(): Promise<number | null> {
+    const event = await this.EthL1L2Model.findOne()
+      .sort({ blockNumber: 'desc' })
+      .exec();
+
+    return typeof event?.blockNumber === 'number' ? event.blockNumber : null;
   }
 
   async update(
-    height: number,
+    nonce: string,
     entry: Partial<L1toL2MessageType>,
     session?: ClientSession,
   ): Promise<EthL1L2Messages | null> {
-    return this.FuelBlockWithUtxoModel.findOneAndUpdate({ height }, entry, {
+    return this.EthL1L2Model.findOneAndUpdate({ nonce }, entry, {
       session,
       new: true,
     }).exec();
   }
 
   async delete(
-    height: number,
+    nonce: string,
     session?: ClientSession,
   ): Promise<EthL1L2Messages | null> {
-    return this.FuelBlockWithUtxoModel.findOneAndDelete(
-      { height },
-      { session },
-    ).exec();
+    return this.EthL1L2Model.findOneAndDelete({ nonce }, { session }).exec();
   }
 }

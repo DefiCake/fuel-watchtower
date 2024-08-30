@@ -24,12 +24,26 @@ export class IndexerService {
     private readonly ethL1L2Messages: EthL1L2MessagesRepository,
   ) {}
 
-  public async indexL1toL2Messages(
-    from: number,
-    to: number,
-    session?: ClientSession,
-  ) {
+  public async indexL1toL2Messages(session?: ClientSession) {
     let messages: L1toL2MessageType[];
+
+    const lastIndexedBlock = await this.ethL1L2Messages.findLastIndexedBlock();
+
+    // TODO: Validate the number through config module / service?
+    let from = Number(
+      this.configService.getOrThrow<string>('DA_DEPLOY_HEIGHT'),
+    );
+
+    if (!!lastIndexedBlock) {
+      from = lastIndexedBlock + 1;
+    }
+
+    let { number: to } = await this.ethService.getCurrentFinalizedBlock();
+
+    if (to < from) {
+      throw new Error(ERROR_DB_CORRUPTION);
+    }
+
     if (this.envioEnabled()) {
       messages = await this.getL1toL2MessagesWithEnvio(from, to);
     } else {
@@ -130,3 +144,6 @@ export class IndexerService {
 
   public async getCommits() {}
 }
+
+export const ERROR_DB_CORRUPTION =
+  'IndexerService.indexL1toL2Messages(): Detected a potential reorg or database corruption';

@@ -5,9 +5,9 @@ import { Connection, connect } from 'mongoose';
 import { FuelService } from '../fuel/fuel.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
-import { IndexerService } from './indexer.service';
+import { ERROR_DB_CORRUPTION, IndexerService } from './indexer.service';
 import { Anvil } from '@viem/anvil';
-import { ethTestWallets, setupAnvil } from 'test/utils';
+import { ethTestWallets, forwardETHChain, setupAnvil } from 'test/utils';
 import {
   ContractTransactionReceipt,
   JsonRpcProvider,
@@ -23,13 +23,14 @@ import {
   EthL1L2MessagesSchema,
 } from './schemas/eth.l1l2.messages.schema';
 import EthL1L2MessagesRepository from './eth.l1l2.messages.repository';
+import { ZeroBytes32 } from 'fuels';
 
 const get = jest.fn();
 const getOrThrow = jest.fn();
 
 describe('IndexerService', () => {
   let service: IndexerService;
-  let config: ConfigService;
+  let ethl1l2: EthL1L2MessagesRepository;
 
   let replSet: MongoMemoryReplSet;
   let mongoConnection: Connection;
@@ -40,6 +41,8 @@ describe('IndexerService', () => {
 
   let portal: FuelMessagePortal;
 
+  let DA_DEPLOY_HEIGHT: number;
+
   beforeAll(async () => {
     ({ anvil, rpcUrl } = await setupAnvil());
 
@@ -49,6 +52,9 @@ describe('IndexerService', () => {
     portal = await new FuelMessagePortal__factory(wallets[0])
       .deploy()
       .then((deployment) => deployment.waitForDeployment());
+
+    const tx = await portal.deploymentTransaction()?.wait();
+    DA_DEPLOY_HEIGHT = tx?.blockNumber as any;
   });
 
   afterAll(async () => {
@@ -94,7 +100,7 @@ describe('IndexerService', () => {
     }).compile();
 
     service = module.get<IndexerService>(IndexerService);
-    config = module.get<ConfigService>(ConfigService);
+    ethl1l2 = module.get<EthL1L2MessagesRepository>(EthL1L2MessagesRepository);
   });
 
   afterEach(async () => {
@@ -146,7 +152,7 @@ describe('IndexerService', () => {
       });
     });
 
-    describe.only('index messages', () => {
+    describe('index messages', () => {
       beforeAll(async () => {
         // These values come from sepolia 's deployment
 
@@ -156,6 +162,7 @@ describe('IndexerService', () => {
             // TODO: maybe we should move this to an e2e test...
             ETH_RPC_URL: rpcUrl,
             ETH_PORTAL_ADDRESS,
+            DA_DEPLOY_HEIGHT,
           };
 
           return values[key];
@@ -167,7 +174,7 @@ describe('IndexerService', () => {
 
       it('retrieves portal messages and stores them in the database', async () => {
         const receipts: ContractTransactionReceipt[] = (await Promise.all(
-          wallets.map((wallet) => {
+          wallets.map(async (wallet) => {
             return portal
               .connect(wallet)
               .sendMessageMock(zeroPadValue(wallet.address, 32), '0x')
@@ -175,18 +182,64 @@ describe('IndexerService', () => {
           }),
         )) as any;
 
-        const blockNumbers = receipts.map((receipt) => receipt?.blockNumber);
+        await forwardETHChain(rpcUrl, 128); // 128 blocks: enough to move the last finalized block
 
-        const from = Math.min(...(blockNumbers as any));
-        const to = Math.max(...(blockNumbers as any));
-
-        const newEntries = await service.indexL1toL2Messages(from, to);
+        const newEntries = await service.indexL1toL2Messages();
+        expect(newEntries).toHaveLength(receipts.length);
 
         newEntries.forEach((entry, index) => {
+          expect(entry.blockNumber).toBe(receipts[index].blockNumber);
           expect(entry.sender).toBe(zeroPadValue(receipts[index].from, 32));
           expect(entry.recipient).toBe(zeroPadValue(receipts[index].from, 32));
           expect(entry.data).toBe('0x');
         });
+
+        const entry = await ethl1l2.findOne(newEntries[0].nonce);
+        expect(entry).not.toBeNull();
+      });
+
+      it('can continue from the last indexed block', async () => {
+        await service.indexL1toL2Messages(); // reindex current blockchain messages
+
+        const receipts: ContractTransactionReceipt[] = (await Promise.all(
+          wallets.map(async (wallet) => {
+            return portal
+              .connect(wallet)
+              .sendMessageMock(zeroPadValue(wallet.address, 32), '0x')
+              .then((tx) => tx.wait());
+          }),
+        )) as any;
+
+        await forwardETHChain(rpcUrl, 128); // 128 blocks: enough to move the last finalized block
+
+        const lastIndexedBlock = (await ethl1l2.findLastIndexedBlock())!;
+
+        const newEntries = await service.indexL1toL2Messages();
+        expect(newEntries).toHaveLength(receipts.length);
+
+        newEntries.forEach((entry, index) => {
+          expect(entry.blockNumber).toBe(receipts[index].blockNumber);
+          expect(entry.blockNumber).toBeGreaterThan(lastIndexedBlock);
+          expect(entry.sender).toBe(zeroPadValue(receipts[index].from, 32));
+          expect(entry.recipient).toBe(zeroPadValue(receipts[index].from, 32));
+          expect(entry.data).toBe('0x');
+        });
+      });
+
+      it('throws if the database has somehow got ahead of Ethereum', async () => {
+        const blockNumber = await provider.getBlockNumber();
+        await ethl1l2.create({
+          blockNumber: blockNumber + 1,
+          sender: 'sender',
+          recipient: 'recipient',
+          nonce: 'nonce',
+          amount: 'amount',
+          data: 'data',
+        });
+
+        await expect(() => service.indexL1toL2Messages()).rejects.toThrow(
+          ERROR_DB_CORRUPTION,
+        );
       });
     });
   });
