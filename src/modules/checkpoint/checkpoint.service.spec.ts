@@ -9,8 +9,8 @@ import { launchTestNode, LaunchTestNodeReturn } from 'fuels/test-utils';
 import { FuelService } from '../fuel/fuel.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EthService } from '../eth/eth.service';
-import { Anvil, createAnvil } from '@viem/anvil';
-import { forwardETHChain, waitForNewFuelBlock } from 'test/utils';
+import { Anvil } from '@viem/anvil';
+import { forwardETHChain, setupAnvil, waitForNewFuelBlock } from 'test/utils';
 
 describe('CheckpointService', () => {
   let anvil: Anvil;
@@ -23,11 +23,7 @@ describe('CheckpointService', () => {
   let mongoConnection: Connection;
 
   beforeAll(async () => {
-    const port = 49152 + Math.floor(5000 * Math.random());
-    anvil = createAnvil({ port });
-
-    rpcUrl = `http://localhost:${anvil.port}`;
-    await anvil.start();
+    ({ anvil, rpcUrl } = await setupAnvil());
 
     fuel = await launchTestNode({
       nodeOptions: {
