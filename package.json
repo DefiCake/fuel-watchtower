@@ -21,7 +21,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "node": "npx hardhat node",
-    "node:up": "docker compose -f ./docker/docker-compose.yml up --build"
+    "node:up": "docker compose -f ./docker/docker-compose.yml up --build",
+    "node:clean": "docker compose -f ./docker/docker-compose.yml down",
+    "hardhat:compile": "hardhat compile"
   },
   "dependencies": {
     "@envio-dev/hypersync-client": "^0.5.1",
@@ -37,6 +39,7 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
+    "@inquirer/prompts": "^5.3.8",
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
@@ -61,6 +64,7 @@
     "hardhat": "^2.22.8",
     "hardhat-deploy": "^0.12.4",
     "hardhat-jest": "^1.0.8",
+    "inquirer": "^10.1.8",
     "jest": "^29.5.0",
     "module-alias": "^2.2.3",
     "mongodb-memory-server": "^10.0.0",

@@ -70,3 +70,25 @@ services:
       deploy:
         condition: service_completed_successfully
     stop_grace_period: 1s
+
+  eth_activity:
+    container_name: eth_activity
+    build:
+      context: ../
+      dockerfile: ./docker/docker.deploy.Dockerfile
+    command: >
+      sh -c 
+      "
+      npx hardhat depositETH --network localhost
+      && sleep 10
+      "
+    environment:
+      - RPC_URL=http://eth_node:8545
+    depends_on:
+      eth_node:
+        condition: service_started
+      deploy:
+        condition: service_completed_successfully
+    volumes:
+      - ../networks/localhost:/app/networks/localhost
+    restart: unless-stopped

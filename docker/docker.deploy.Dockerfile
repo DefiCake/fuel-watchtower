@@ -10,15 +10,15 @@ COPY package.json pnpm-lock.yaml /app/
 RUN pnpm install
 
 COPY tsconfig.json hardhat.config.ts /app/
-# COPY scripts/hardhat_scripts/ /app/hardhat_scripts/
+COPY scripts/hardhat/ /app/scripts/hardhat/
 COPY contracts/mocks/PlaceholderV8.sol /app/contracts/mocks/PlaceholderV8.sol
 COPY deploy/ /app/deploy/
 
-RUN pnpm build
+RUN pnpm hardhat:compile
 
 COPY contracts/ /app/contracts/
 
-RUN pnpm build
+RUN pnpm hardhat:compile
 
 
 CMD [ "pnpm", "node", "--hostname", "0.0.0.0"]

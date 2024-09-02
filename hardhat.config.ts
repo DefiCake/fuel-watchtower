@@ -6,6 +6,7 @@ import '@nomicfoundation/hardhat-verify';
 import '@nomicfoundation/hardhat-network-helpers';
 import '@typechain/hardhat';
 import 'hardhat-deploy';
+import './scripts/hardhat';
 import { NetworkUserConfig, SolcUserConfig } from 'hardhat/types';
 
 const DEFAULT_MNEMONIC =
@@ -27,7 +28,7 @@ const config: HardhatUserConfig = {
       },
     },
     localhost: {
-      url: process.env.RPC_URL,
+      url: process.env.RPC_URL || 'http://127.0.0.1:8545',
     },
   },
   paths: {
