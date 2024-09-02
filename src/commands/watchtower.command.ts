@@ -13,6 +13,6 @@ export class WatchtowerCommand extends CommandRunner {
   }
 
   async run(): Promise<void> {
-    const { height, ethBlockSync } = await this.service.getFuelLastBlock();
+    await this.service.runChecks();
   }
 }
