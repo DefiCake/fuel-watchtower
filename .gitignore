@@ -59,6 +59,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 cache
 artifacts
 src/types/solidity
+networks
 
 # Forc
 contracts/sway/**/out

@@ -15,6 +15,7 @@
     "hardhat.config.ts",
     "contracts",
     "hardhat/**/*",
-    "src/**/*.spec.ts"
+    "src/**/*.spec.ts",
+    "deploy/**/*"
   ]
 }

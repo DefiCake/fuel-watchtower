@@ -23,6 +23,26 @@ services:
       - ../scripts/anvil.sh:/anvil.sh:ro
     stop_grace_period: 1s
 
+  deploy:
+    container_name: deploy
+    build:
+      context: ../
+      dockerfile: ./docker/docker.deploy.Dockerfile
+    command: >
+      sh -c 
+      "
+      npx hardhat deploy --network localhost --reset
+      && cp -rT ./networks/localhost /app/deployment_data
+      "
+    environment:
+      - RPC_URL=http://eth_node:8545
+    depends_on:
+      eth_node:
+        condition: service_started
+    volumes:
+      - ../networks/localhost:/app/deployment_data
+    restart: on-failure
+
   otterscan:
     container_name: otterscan
     image: otterscan/otterscan
@@ -47,6 +67,6 @@ services:
     depends_on:
       eth_node:
         condition: service_started
-      # deploy:
-      #   condition: service_completed_successfully
+      deploy:
+        condition: service_completed_successfully
     stop_grace_period: 1s

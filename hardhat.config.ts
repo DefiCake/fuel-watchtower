@@ -5,7 +5,7 @@ import '@nomicfoundation/hardhat-ethers';
 import '@nomicfoundation/hardhat-verify';
 import '@nomicfoundation/hardhat-network-helpers';
 import '@typechain/hardhat';
-// import 'hardhat-deploy';
+import 'hardhat-deploy';
 import { NetworkUserConfig, SolcUserConfig } from 'hardhat/types';
 
 const DEFAULT_MNEMONIC =
@@ -26,9 +26,12 @@ const config: HardhatUserConfig = {
           : undefined,
       },
     },
+    localhost: {
+      url: process.env.RPC_URL,
+    },
   },
   paths: {
-    // deployments: 'networks',
+    deployments: 'networks',
     sources: 'contracts/solidity',
     tests: 'test/unit',
   },
